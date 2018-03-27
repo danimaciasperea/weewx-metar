@@ -93,7 +93,7 @@ class MyMetarSearch(SearchList):
         lines = myfile.split("<TR VALIGN=")
         
         # Obtain the new METAR information and replace the airport file
-        if lines[0].find("Output produced by METARs form") != --1:
+        if lines[0].find("Output produced by METARs form") != -1:
             htmlText = "<TABLE style=\"border-spacing: 5px;border-collapse: inherit;line-height: 1.3;\">"
             
             for i in range(len(lines)):
