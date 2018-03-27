@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2013-2016  Nick Dajda <nick.dajda@gmail.com>
+# Copyright (c) 2017-2018  Daniel Macías Perea <dani.macias.perea@gmail.com>
 #
 # Distributed under the terms of the GNU GENERAL PUBLIC LICENSE
 #
@@ -19,7 +19,7 @@ To use it, add this generator to search_list_extensions in skin.conf:
     refresh_interval = 5
 
     [[lemd]]                           # Create a new Cheetah tag which will have a _metar suffix: $lemd_metar
-    [[eddg]]
+    [[eddg]] 
 
 """
 
@@ -31,8 +31,6 @@ import os.path
 import weeutil.weeutil
 import urllib
 import syslog
-
-PATH_TO_XML = "/var/www/html/eltiempo/"
 
 class MyMetarSearch(SearchList):
     def __init__(self, generator):
@@ -66,13 +64,17 @@ class MyMetarSearch(SearchList):
                 metar_name = airport + '_metar'              
                 
                 try:
-                    self.search_list_extension[metar_name] = self._statsHTMLTable(airport)
+                    self.search_list_extension[metar_name] = self.statsHTMLTable(airport)
                     ngen += 1
-                except :
-                    syslog.syslog(syslog.LOG_INFO, "%s: error: Cannot get Metar Report." % os.path.basename(__file__))                                    
-                    # get last metar file saved
-                    with open(PATH_TO_XML + airport + ".metar", 'r') as f:
-                        self.search_list_extension[metar_name] = f.read()  
+                except:
+                    syslog.syslog(syslog.LOG_INFO, "%s: error: Cannot get Metar Report. Recovering the last file saved." % os.path.basename(__file__))                                    
+                    # try to get last metar file saved
+                    try:
+                        with open(destination_dir + airport + ".metar", 'r') as f:
+                            self.search_list_extension[metar_name] = f.read()
+                    except:
+                        syslog.syslog(syslog.LOG_INFO, "%s: error: There could not be found an older Metar Report. Skipping!" % os.path.basename(__file__))
+                        self.search_list_extension[metar_name] = "Error - No METAR available"
                     
             t2 = time.time()
 
@@ -81,7 +83,7 @@ class MyMetarSearch(SearchList):
 
         return [self.search_list_extension]
 
-    def _statsHTMLTable(self, airport):
+    def statsHTMLTable(self, airport):
         """
         airport: ICAO Code of Airport to generate metar
         """
@@ -89,14 +91,17 @@ class MyMetarSearch(SearchList):
         f = urllib.urlopen(url)
         myfile = f.read()
         lines = myfile.split("<TR VALIGN=")
-        htmlText = "<TABLE style=\"border-spacing: 5px;border-collapse: inherit;line-height: 1.3;\">"
         
-        for i in range(len(lines)):
-            if i > 1:
-                htmlText += "<TR VALIGN=%s" % lines[i]
-        
-        with open(PATH_TO_XML + airport + ".metar", 'w') as f:
-            f.write(htmlText)        
+        # Obtain the new METAR information and replace the airport file
+        if lines[0].find("Output produced by METARs form") != --1:
+            htmlText = "<TABLE style=\"border-spacing: 5px;border-collapse: inherit;line-height: 1.3;\">"
+            
+            for i in range(len(lines)):
+                if i > 1:
+                    htmlText += "<TR VALIGN=%s" % lines[i]
+            
+            with open(destination_dir + airport + ".metar", 'w') as f:
+                f.write(htmlText)
         
         return htmlText
 
